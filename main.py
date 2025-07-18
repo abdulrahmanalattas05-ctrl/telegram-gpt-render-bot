@@ -1,41 +1,51 @@
 import os
 import openai
 from telegram import Update
-from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, CommandHandler
+from telegram.ext import (
+    Updater,
+    CommandHandler,
+    MessageHandler,
+    Filters,
+    CallbackContext
+)
 
-# مفاتيح من بيئة التشغيل
+# إعداد المفاتيح من البيئة
 openai.api_key = os.getenv("OPENAI_API_KEY")
 telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
 
-# رسالة الترحيب
+# أمر /start
 def start(update: Update, context: CallbackContext):
-    welcome_message = (
+    update.message.reply_text(
         "👋 مرحباً بك في بوت الذكاء الاصطناعي!\n\n"
-        "🤖 هذا البوت يستخدم نموذج ChatGPT من شركة OpenAI للرد على أسئلتك بشكل ذكي.\n"
-        "📌 تم تطوير هذا البوت بواسطة: *عبدالرحمن جمال عبدالرب العطاس*.\n\n"
-        "💬 ابدأ بإرسال أي رسالة وسأقوم بالرد عليك ✨"
+        "🤖 هذا البوت يستخدم نموذج ChatGPT من شركة OpenAI للرد على أسئلتك.\n"
+        "📌 تم تطويره بواسطة: عبدالرحمن جمال عبدالرب العطاس.\n\n"
+        "💬 أرسل لي أي رسالة الآن وسأجيبك!"
     )
-    update.message.reply_text(welcome_message, parse_mode="Markdown")
 
-# الرد على الرسائل النصية
-def chat(update: Update, context: CallbackContext):
+# الرد التلقائي
+def handle_message(update: Update, context: CallbackContext):
     user_message = update.message.text
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": user_message}]
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": user_message}
+            ]
         )
-        reply = response['choices'][0]['message']['content']
-        update.message.reply_text(reply)
+        bot_reply = response["choices"][0]["message"]["content"]
+        update.message.reply_text(bot_reply)
     except Exception as e:
-        update.message.reply_text("حدث خطأ: " + str(e))
+        update.message.reply_text(f"❌ حدث خطأ: {str(e)}")
 
-# تفعيل البوت
 def main():
     updater = Updater(telegram_token, use_context=True)
     dp = updater.dispatcher
+
+    # مسجّل الأوامر
     dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, chat))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+
     updater.start_polling()
     updater.idle()
 
