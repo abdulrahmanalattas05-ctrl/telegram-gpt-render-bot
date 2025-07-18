@@ -1,53 +1,47 @@
 import os
 import openai
 from telegram import Update
-from telegram.ext import (
-    Updater,
-    CommandHandler,
-    MessageHandler,
-    Filters,
-    CallbackContext
-)
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-# إعداد المفاتيح من البيئة
+# إعداد مفتاح OpenAI من متغير البيئة
 openai.api_key = os.getenv("OPENAI_API_KEY")
-telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 # أمر /start
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text(
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = (
         "👋 مرحباً بك في بوت الذكاء الاصطناعي!\n\n"
         "🤖 هذا البوت يستخدم نموذج ChatGPT من شركة OpenAI للرد على أسئلتك.\n"
-        "📌 تم تطويره بواسطة: عبدالرحمن جمال عبدالرب العطاس.\n\n"
-        "💬 أرسل لي أي رسالة الآن وسأجيبك!"
+        "📌 تم تطوير هذا البوت بواسطة: *عبدالرحمن جمال عبدالرب العطاس*\n\n"
+        "💬 أرسل أي رسالة وسأرد عليك باستخدام الذكاء الاصطناعي ✨"
     )
+    await update.message.reply_text(message, parse_mode="Markdown")
 
-# الرد التلقائي
-def handle_message(update: Update, context: CallbackContext):
-    user_message = update.message.text
+# الرد على الرسائل النصية
+async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_msg = update.message.text
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": user_message}
+                {"role": "user", "content": user_msg}
             ]
         )
-        bot_reply = response["choices"][0]["message"]["content"]
-        update.message.reply_text(bot_reply)
+        reply = response.choices[0].message.content
+        await update.message.reply_text(reply)
     except Exception as e:
-        update.message.reply_text(f"❌ حدث خطأ: {str(e)}")
+        await update.message.reply_text(f"❌ حدث خطأ: {e}")
 
-def main():
-    updater = Updater(telegram_token, use_context=True)
-    dp = updater.dispatcher
+# تشغيل التطبيق
+async def main():
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    # مسجّل الأوامر
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), chat))
 
-    updater.start_polling()
-    updater.idle()
+    print("🤖 البوت قيد التشغيل...")
+    await app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+    asyncio.run(main())
